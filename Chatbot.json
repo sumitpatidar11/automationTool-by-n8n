@@ -373,15 +373,7 @@
               "name": "userIP",
               "value": "={{ $('Process Geo Data').item.json.userIP }}",
               "type": "string"
-            },
-            {
-              "id": "prepare-country",
-              "name": "country",
-              "value": "={{ $('Process Geo Data').item.json.locationData.country }}",
-              "type": "string"
-            },
-            {
-              "id": "prepare-city",
+            
               "name": "city",
               "value": "={{ $('Process Geo Data').item.json.locationData.city }}",
               "type": "string"
@@ -425,46 +417,8 @@
     },
     {
       "parameters": {
-        "operation": "update",
-        "collection": "foduu_user",
-        "updateKey": "userEmail",
-        "fields": "userName,sessionId,domain,userIP,country,city,region,timezone,timestamp,lastLogin",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.mongoDb",
-      "typeVersion": 1.2,
-      "position": [
-        -672,
-        144
-      ],
-      "id": "9d8ca978-997a-4762-a5fe-c1df200a1a15",
-      "name": "Update Existing User",
-      "credentials": {
-        "mongoDb": {
-          "id": "G4K2yaBv6jYoaQIG",
-          "name": "MongoDB account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "collection": "foduu_chat",
-        "options": {
-          "limit": 99999,
-          "sort": "={{ JSON.stringify({timestamp: 1}) }}"
-        },
-        "query": "={{ JSON.stringify({userEmail: $('Process Geo Data').item.json.userEmail, domain: $('Process Geo Data').item.json.domain}) }}"
-      },
-      "type": "n8n-nodes-base.mongoDb",
-      "typeVersion": 1.2,
-      "position": [
-        -368,
-        32
-      ],
-      "id": "964d57fa-0c14-4bf2-be19-2a6240061f21",
-      "name": "Get All Chat History",
-      "alwaysOutputData": true,
-      "credentials": {
+   
+
         "mongoDb": {
           "id": "G4K2yaBv6jYoaQIG",
           "name": "MongoDB account"
