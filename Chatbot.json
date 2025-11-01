@@ -1,0 +1,1228 @@
+{
+  "name": "foduu_chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2704,
+        288
+      ],
+      "id": "ecab7928-3434-403a-ac2d-6d6942e135ce",
+      "name": "When chat message received",
+      "webhookId": "8da730ab-7f91-4402-be01-71d20ce88127"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced parsing with domain extraction and IP address capture\nconst input = $input.first().json;\nconst chatInput = input.chatInput || '';\nconst sessionId = input.sessionId || 'default';\n\n// Extract IP address - PRIORITIZE payload IP from frontend\nlet userIP = '';\nconst headers = $input.first().headers || {};\n\n// First try to get IP from payload (sent by frontend)\nif (input.userIP && input.userIP !== 'unknown') {\n  userIP = input.userIP;\n  console.log('IP from frontend payload:', userIP);\n} else {\n  // Fallback to headers if not in payload\n  userIP = headers['x-real-ip'] ||\n           headers['x-forwarded-for'] || \n           headers['cf-connecting-ip'] || \n           headers['x-client-ip'] || \n           headers['x-forwarded'] || \n           headers['forwarded-for'] || \n           headers['forwarded'] || \n           headers['remote-addr'] ||\n           $input.first().ip || \n           'unknown';\n  console.log('IP from headers:', userIP);\n}\n\n// If x-forwarded-for contains multiple IPs, take the first one\nif (userIP && userIP.includes(',')) {\n  userIP = userIP.split(',')[0].trim();\n}\n\n// Remove any port numbers if present\nif (userIP && userIP.includes(':') && !userIP.includes('::')) {\n  userIP = userIP.split(':')[0];\n}\n\n// Extract domain - positioned after sessionId\nlet domain = input.domain || null ; // Default domain if not provided\n\n// Extract user info\nlet userEmail = input.userEmail || '';\nlet userName = input.userName || '';\n\n// Try to extract from message if not provided\nif (!userEmail) {\n  const emailMatch = chatInput.match(/\\[User: ([^\\]]+)\\]/);\n  if (emailMatch) userEmail = emailMatch[1];\n  else {\n    const emailMatch2 = chatInput.match(/Email:\\s*([^,\\s]+)/i);\n    if (emailMatch2) userEmail = emailMatch2[1].trim();\n  }\n}\n\nif (!userName) {\n  const nameMatch = chatInput.match(/Name:\\s*([^,]+)/i);\n  if (nameMatch) userName = nameMatch[1].trim();\n}\n\n// Clean the query\nlet cleanQuery = chatInput\n  .replace(/\\[User:[^\\]]+\\]\\s*/g, '')\n   .replace(/\\[Domain:[^\\]]+\\]\\s*/gi, '') \n  .replace(/Name:\\s*[^,]+,\\s*Email:\\s*[^,\\s]+\\.?\\s*/gi, '')\n  .replace(/User IP:\\s*[^\\s,]+\\s*/gi, '')\n  .replace(/User query:\\s*/gi, '')\n  .trim();\n\n// Detect if it's a login\nconst isLogin = chatInput.includes('Name:') && chatInput.includes('Email:');\n\n// Check if user has authentication info\nconst hasAuth = (userEmail || userName) ? true : false;\n\n// Enhanced history query detection\nconst lowerQuery = cleanQuery.toLowerCase();\nconst historyKeywords = [\n  'last question', 'previous question', 'last 2 question', 'last two question',\n  'last 3 question', 'last three question', 'last 5 question', 'last five question',\n  'what did i ask', 'what was my', 'my last message', 'chat history',\n  'previous conversation', 'earlier conversation', 'what i asked',\n  'show my question', 'my previous', 'last query', 'previous query',\n  'first question', 'my first', 'initial question', 'beginning',\n  'show me my', 'display my', 'list my', 'give me my',\n  'conversation history', 'past questions', 'earlier questions',\n  'recent questions', 'all my questions', 'my questions',\n  'summary of', 'summarize my', 'overview of my',\n  'when did i ask', 'how many times', 'search my history'\n];\n\n// Check for number patterns\nconst numberPatterns = [\n  /last (\\d+) questions?/i,\n  /previous (\\d+) questions?/i,\n  /show (\\d+) questions?/i,\n  /display (\\d+) questions?/i,\n  /give me (\\d+) questions?/i,\n  /find (\\d+) questions?/i,\n  /get (\\d+) questions?/i\n];\n\nlet isHistoryQuery = !isLogin && historyKeywords.some(keyword => lowerQuery.includes(keyword));\n\nif (!isHistoryQuery) {\n  isHistoryQuery = numberPatterns.some(pattern => pattern.test(lowerQuery));\n}\n\nconst wordNumbers = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];\nif (!isHistoryQuery) {\n  isHistoryQuery = wordNumbers.some(num => \n    lowerQuery.includes(`last ${num}`) || \n    lowerQuery.includes(`previous ${num}`) ||\n    lowerQuery.includes(`show ${num}`) ||\n    lowerQuery.includes(`give me ${num}`)\n  );\n}\n\nif (!isHistoryQuery) {\n  const contextClues = [\n    /what.*asked.*before/i,\n    /remind me.*asked/i,\n    /what.*discussed.*earlier/i,\n    /our.*conversation/i,\n    /talked about.*before/i\n  ];\n  isHistoryQuery = contextClues.some(pattern => pattern.test(cleanQuery));\n}\n\nconsole.log('Query:', cleanQuery);\nconsole.log('Domain:', domain);\nconsole.log('User IP:', userIP);\nconsole.log('Is History Query:', isHistoryQuery);\nconsole.log('Has Auth:', hasAuth);\n\nreturn {\n  originalMessage: chatInput,\n  sessionId: sessionId,\n  domain: domain,\n  userEmail: userEmail,\n  userName: userName,\n  userIP: userIP,\n  cleanQuery: cleanQuery,\n  isLogin: isLogin,\n  hasAuth: hasAuth,\n  isHistoryQuery: isHistoryQuery,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2480,
+        288
+      ],
+      "id": "f07b478d-2e9f-4a4f-8d8b-85d67b1162a0",
+      "name": "Parse Input Data"
+    },
+    {
+      "parameters": {
+        "url": "=http://ip-api.com/json/{{ $json.userIP }}?fields=status,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2256,
+        288
+      ],
+      "id": "9817198a-3c51-4da4-b029-ad4931dc4adb",
+      "name": "Get Geo Location",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process geo-location data dynamically\nconst inputData = $('Parse Input Data').item.json;\nconst geoData = $input.first().json;\n\n// Initialize location data\nlet locationData = {\n  country: $input.first().json.countryCode,\n  countryCode: $input.first().json.countryCode,\n  city:$input.first().json.city ,\n  region:$input.first().json.region ,\n  timezone: $input.first().json.timezone,\n  isp: $input.first().json.isp,\n  lat: $input.first().json.lat,\n  lon: $input.first().json.lon ,\n  isVPN: false,\n  isMobile: false\n};\n\n// Process geo data if available\nif (geoData && geoData.status === 'success') {\n  locationData = {\n    country: geoData.country || 'Unknown',\n    countryCode: geoData.countryCode || 'XX',\n    city: geoData.city || 'Unknown',\n    region: geoData.regionName || geoData.region || 'Unknown',\n    timezone: geoData.timezone || 'UTC',\n    isp: geoData.isp || 'Unknown',\n    lat: geoData.lat || 0,\n    lon: geoData.lon || 0,\n    isVPN: geoData.proxy || false,\n    isMobile: geoData.mobile || false\n  };\n}\n\n// Combine all data without predefined regional context\nreturn {\n  ...inputData,\n  locationData,\n  geoProcessed: true\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2064,
+        304
+      ],
+      "id": "cef6757a-2b25-490b-8fcf-e448e235ac37",
+      "name": "Process Geo Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.isLogin }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "3fc28a99-e117-480e-872c-ae704f6e9e71"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Login"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.isHistoryQuery }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "65a2517d-dcb3-4368-b5a2-0eb3acde6b35"
+                  },
+                  {
+                    "leftValue": "={{ $json.hasAuth }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "52dd1c4a-5c07-4522-9d26-819cccfe00a6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "History"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.isLogin }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "4607fbdf-9227-4824-abcf-fc3402d7ec7b"
+                  },
+                  {
+                    "leftValue": "={{ $json.isHistoryQuery }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "db2fff71-7089-48e9-92bf-944bb199bcd6"
+                  },
+                  {
+                    "leftValue": "={{ $json.hasAuth }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    },
+                    "id": "09807fc9-8f86-4cc2-84c0-f24c6fe79455"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Chat"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none",
+          "allMatchingOutputs": false
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1808,
+        272
+      ],
+      "id": "b7011482-75f0-4750-b686-27d1283b5079",
+      "name": "Route by Type"
+    },
+    {
+      "parameters": {
+        "collection": "foduu_user",
+        "options": {},
+        "query": "={{ JSON.stringify({userEmail: $json.userEmail, domain: $json.domain}) }}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -1392,
+        96
+      ],
+      "id": "5c9701e0-87b3-4993-8e4d-3800b16635f2",
+      "name": "Check Existing User",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "user-exists",
+              "leftValue": "={{ $json.userEmail ? true : false }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1168,
+        48
+      ],
+      "id": "fd1d1485-36ff-4b81-b8dd-5373c8984f96",
+      "name": "Is New User?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prepare-email",
+              "name": "userEmail",
+              "value": "={{ $('Process Geo Data').item.json.userEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-name",
+              "name": "userName",
+              "value": "={{ $('Process Geo Data').item.json.userName }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-session",
+              "name": "sessionId",
+              "value": "={{ $('Process Geo Data').item.json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-domain",
+              "name": "domain",
+              "value": "={{ $('Process Geo Data').item.json.domain }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-ip",
+              "name": "userIP",
+              "value": "={{ $('Process Geo Data').item.json.userIP }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-country",
+              "name": "country",
+              "value": "={{ $('Process Geo Data').item.json.locationData.country }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-city",
+              "name": "city",
+              "value": "={{ $('Process Geo Data').item.json.locationData.city }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-region",
+              "name": "region",
+              "value": "={{ $('Process Geo Data').item.json.locationData.region }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-timezone",
+              "name": "timezone",
+              "value": "={{ $('Process Geo Data').item.json.locationData.timezone }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-timestamp",
+              "name": "timestamp",
+              "value": "={{ $('Process Geo Data').item.json.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-firstlogin",
+              "name": "firstLogin",
+              "value": "={{ $('Process Geo Data').item.json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -848,
+        -32
+      ],
+      "id": "4f6e49f2-0048-449d-8630-dd6faf05ac87",
+      "name": "Prepare New User Data"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "foduu_user",
+        "fields": "sessionId,domain,userEmail,userName,userIP,country,city,region,timezone,timestamp,firstLogin",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -656,
+        -32
+      ],
+      "id": "328496b3-78ae-47c6-91bb-0d5ecd4dcafd",
+      "name": "Create New User",
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prepare-email",
+              "name": "userEmail",
+              "value": "={{ $('Process Geo Data').item.json.userEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-name",
+              "name": "userName",
+              "value": "={{ $('Process Geo Data').item.json.userName }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-session",
+              "name": "sessionId",
+              "value": "={{ $('Process Geo Data').item.json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-domain",
+              "name": "domain",
+              "value": "={{ $('Process Geo Data').item.json.domain }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-ip",
+              "name": "userIP",
+              "value": "={{ $('Process Geo Data').item.json.userIP }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-country",
+              "name": "country",
+              "value": "={{ $('Process Geo Data').item.json.locationData.country }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-city",
+              "name": "city",
+              "value": "={{ $('Process Geo Data').item.json.locationData.city }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-region",
+              "name": "region",
+              "value": "={{ $('Process Geo Data').item.json.locationData.region }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-timezone",
+              "name": "timezone",
+              "value": "={{ $('Process Geo Data').item.json.locationData.timezone }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-timestamp",
+              "name": "timestamp",
+              "value": "={{ $('Process Geo Data').item.json.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "prepare-lastlogin",
+              "name": "lastLogin",
+              "value": "={{ $('Process Geo Data').item.json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -832,
+        144
+      ],
+      "id": "e69b84af-87d6-4c22-b930-9aaef40de26b",
+      "name": "Prepare Existing User Data"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "foduu_user",
+        "updateKey": "userEmail",
+        "fields": "userName,sessionId,domain,userIP,country,city,region,timezone,timestamp,lastLogin",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        144
+      ],
+      "id": "9d8ca978-997a-4762-a5fe-c1df200a1a15",
+      "name": "Update Existing User",
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collection": "foduu_chat",
+        "options": {
+          "limit": 99999,
+          "sort": "={{ JSON.stringify({timestamp: 1}) }}"
+        },
+        "query": "={{ JSON.stringify({userEmail: $('Process Geo Data').item.json.userEmail, domain: $('Process Geo Data').item.json.domain}) }}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -368,
+        32
+      ],
+      "id": "964d57fa-0c14-4bf2-be19-2a6240061f21",
+      "name": "Get All Chat History",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format login response with domain and location info\nconst chatHistory = $input.all();\nconst userData = $('Process Geo Data').item.json;\nconst userName = userData.userName;\nconst userEmail = userData.userEmail;\nconst domain = userData.domain;\nconst location = userData.locationData;\nconst isNewUser = $('Check Existing User').item.json.userEmail ? false : true;\n\nlet formattedHistory = [];\nlet responseData = {};\n\nif (chatHistory && chatHistory.length > 0 && chatHistory[0].json?.cleanQuery) {\n  formattedHistory = chatHistory.map(chat => ({\n    query: chat.json.cleanQuery || '',\n    response: chat.json.output || '',\n    timestamp: chat.json.timestamp || ''\n  }));\n  \n  responseData = {\n    type: 'login_with_history',\n    welcomeMessage: `Welcome back, ${userName}! How can I assist you today?`,\n    historyCount: chatHistory.length,\n    chatHistory: formattedHistory,\n    userIP: userData.userIP,\n    location: location\n  };\n} else {\n  if (isNewUser) {\n    responseData = {\n      type: 'new_user',\n      welcomeMessage: `Welcome to ${domain} AI Assistant, ${userName}! How can I assist you today?`,\n      historyCount: 0,\n      chatHistory: [],\n      userIP: userData.userIP,\n      location: location\n    };\n  } else {\n    responseData = {\n      type: 'returning_user_no_history',\n      welcomeMessage: `Welcome back, ${userName}! How can I help you today?`,\n      historyCount: 0,\n      chatHistory: [],\n      userIP: userData.userIP,\n      location: location\n    };\n  }\n}\n\nreturn {\n  output: JSON.stringify(responseData),\n  sessionId: userData.sessionId,\n  domain: domain,\n  userEmail: userEmail,\n  userName: userName,\n  userIP: userData.userIP,\n  country: location.country,\n  city: location.city,\n  chatHistory: formattedHistory,\n  historyCount: chatHistory.length,\n  isNewUser: isNewUser,\n  responseType: responseData.type\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        32
+      ],
+      "id": "65e96715-ef32-42af-8251-acdd04b67819",
+      "name": "Format Login Response"
+    },
+    {
+      "parameters": {
+        "collection": "foduu_chat",
+        "options": {
+          "limit": 99999,
+          "sort": "={{ JSON.stringify({timestamp: -1}) }}"
+        },
+        "query": "={{ JSON.stringify({userEmail: $json.userEmail, domain: $json.domain}) }}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -1392,
+        304
+      ],
+      "id": "708144d6-e4d4-4ac4-8eca-97386a130f6d",
+      "name": "Get All History for Query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced history processing with domain filtering and location info\nconst chatHistory = $input.all();\nconst inputData = $('Process Geo Data').item.json;\nconst query = inputData.cleanQuery.toLowerCase();\nconst userName = inputData.userName || 'User';\nconst userEmail = inputData.userEmail;\nconst domain = inputData.domain;\nconst location = inputData.locationData;\n\nlet response = '';\n\nif (!chatHistory || chatHistory.length === 0 || !chatHistory[0].json?.cleanQuery) {\n  response = `I couldn't find any previous conversations for ${domain}. This might be your first chat or the history is not available.`;\n} else {\n  const validHistory = chatHistory\n    .filter(item => {\n      if (!item.json?.cleanQuery) return false;\n      return item.json.cleanQuery.trim() !== inputData.cleanQuery.trim() && \n             !item.json.isHistoryResponse;\n    })\n    .sort((a, b) => new Date(b.json.timestamp) - new Date(a.json.timestamp));\n  \n  if (validHistory.length === 0) {\n    response = `I couldn't find any previous conversations to show you for ${domain}.`;\n  } else {\n    let numToShow = 1;\n    let showSummary = false;\n    let searchTerm = '';\n    \n    if (query.includes('summary') || query.includes('summarize') || query.includes('overview')) {\n      showSummary = true;\n      numToShow = Math.min(10, validHistory.length);\n    }\n    \n    const searchMatch = query.match(/search.*for\\s+[\"']?([^\"']+)[\"']?/i);\n    if (searchMatch) {\n      searchTerm = searchMatch[1].toLowerCase();\n    }\n    \n    const numberMatch = query.match(/(\\d+)/);\n    if (numberMatch && !showSummary) {\n      numToShow = Math.min(parseInt(numberMatch[1]), validHistory.length);\n    } else if (query.includes('first') || query.includes('initial') || query.includes('beginning')) {\n      const oldestHistory = validHistory.slice().reverse();\n      const first = oldestHistory[0].json;\n      response = `Your first question on ${domain} was:\\n\\n**Question:** \"${first.cleanQuery}\"\\n\\n**My Response:** \"${first.output || 'No response recorded'}\"\\n\\n**Time:** ${new Date(first.timestamp).toLocaleString()}`;\n    } else if (query.includes('all')) {\n      numToShow = Math.min(15, validHistory.length);\n    } else if (query.includes('2') || query.includes('two')) {\n      numToShow = Math.min(2, validHistory.length);\n    } else if (query.includes('3') || query.includes('three')) {\n      numToShow = Math.min(3, validHistory.length);\n    } else if (query.includes('5') || query.includes('five')) {\n      numToShow = Math.min(5, validHistory.length);\n    }\n    \n    let filteredHistory = validHistory;\n    if (searchTerm) {\n      filteredHistory = validHistory.filter(item => \n        item.json.cleanQuery.toLowerCase().includes(searchTerm) ||\n        (item.json.output && item.json.output.toLowerCase().includes(searchTerm))\n      );\n      if (filteredHistory.length === 0) {\n        response = `No conversations found containing \"${searchTerm}\" for ${domain}.`;\n      }\n    }\n    \n    if (!response) {\n      const relevantHistory = filteredHistory.slice(0, numToShow);\n      \n      if (showSummary) {\n        response = `Here's a summary of your ${relevantHistory.length} recent conversations on ${domain}:\\n\\n`;\n        relevantHistory.forEach((item, index) => {\n          const chat = item.json;\n          const shortQuestion = chat.cleanQuery.length > 50 ? \n            chat.cleanQuery.substring(0, 47) + '...' : chat.cleanQuery;\n          response += `${index + 1}. \"${shortQuestion}\" (${new Date(chat.timestamp).toLocaleDateString()})\\n`;\n        });\n        response += `\\nAsk for specific conversations like \"show me question 3\" for details.`;\n      } else if (searchTerm && filteredHistory.length > 0) {\n        response = `Found ${filteredHistory.length} conversation(s) containing \"${searchTerm}\" on ${domain}:\\n\\n`;\n        filteredHistory.slice(0, 5).forEach((item, index) => {\n          const chat = item.json;\n          response += `**${index + 1}. Match:**\\n`;\n          response += `**You asked:** \"${chat.cleanQuery}\"\\n`;\n          response += `**I responded:** \"${(chat.output || 'No response recorded').substring(0, 100)}${(chat.output || '').length > 100 ? '...' : ''}\"\\n`;\n          response += `**Time:** ${new Date(chat.timestamp).toLocaleString()}\\n\\n`;\n        });\n      } else if (numToShow === 1) {\n        const last = relevantHistory[0].json;\n        response = `Your last question on ${domain} was:\\n\\n**Question:** \"${last.cleanQuery}\"\\n\\n**My Response:** \"${last.output || 'No response recorded'}\"\\n\\n**Time:** ${new Date(last.timestamp).toLocaleString()}`;\n      } else {\n        response = `Here are your last ${numToShow} conversation(s) on ${domain}:\\n\\n`;\n        relevantHistory.forEach((item, index) => {\n          const chat = item.json;\n          response += `**${index + 1}. Conversation:**\\n`;\n          response += `**You asked:** \"${chat.cleanQuery}\"\\n`;\n          response += `**I responded:** \"${(chat.output || 'No response recorded').substring(0, 200)}${(chat.output || '').length > 200 ? '...' : ''}\"\\n`;\n          response += `**Time:** ${new Date(chat.timestamp).toLocaleString()}\\n\\n`;\n        });\n      }\n    }\n  }\n}\n\nreturn {\n  output: response,\n  sessionId: inputData.sessionId,\n  domain: domain,\n  userEmail: userEmail,\n  userName: userName,\n  userIP: inputData.userIP,\n  country: location.country,\n  city: location.city,\n  region: location.region,\n  cleanQuery: inputData.cleanQuery,\n  timestamp: new Date().toISOString(),\n  isHistoryResponse: true\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        336
+      ],
+      "id": "c1780fd1-d2cf-43e6-882c-076a826c9bac",
+      "name": "Format History Response"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "foduu_chat",
+        "fields": "sessionId,domain,userEmail,userName,userIP,country,city,region,cleanQuery,output,timestamp,isHistoryResponse",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        336
+      ],
+      "id": "37db71fe-cf3d-42a1-a072-c55ceb403411",
+      "name": "Save History Chat to MongoDB",
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "collection": "foduu_chat",
+        "options": {
+          "limit": 99999,
+          "sort": "={{ JSON.stringify({timestamp: 1}) }}"
+        },
+        "query": "={{ JSON.stringify({userEmail: $json.userEmail, domain: $json.domain}) }}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -1584,
+        656
+      ],
+      "id": "2a826d85-955b-4aa8-bf14-6c25da538025",
+      "name": "Get Context History for AI",
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Update to remove regional context references\nconst currentInput = $('Process Geo Data').item.json;\nconst chatHistory = $input.all();\nconst location = currentInput.locationData;\n\nlet contextHistory = '';\nlet conversationStats = {\n  totalConversations: 0,\n  recentCount: 0,\n  oldestDate: null,\n  newestDate: null,\n  domain: currentInput.domain\n};\n\nif (chatHistory && chatHistory.length > 0 && chatHistory[0].json?.cleanQuery) {\n  const actualConversations = chatHistory.filter(chat => \n    chat.json?.cleanQuery && !chat.json.isHistoryResponse\n  );\n  \n  conversationStats.totalConversations = actualConversations.length;\n  \n  if (actualConversations.length > 0) {\n    actualConversations.sort((a, b) => new Date(a.json.timestamp) - new Date(b.json.timestamp));\n    \n    conversationStats.oldestDate = actualConversations[0].json.timestamp;\n    conversationStats.newestDate = actualConversations[actualConversations.length - 1].json.timestamp;\n    \n    contextHistory = '\\n\\n=== USER CONVERSATION MEMORY ===\\n';\n    contextHistory += `Domain: ${currentInput.domain}\\n`;\n    contextHistory += `Location: ${location.city}, ${location.region}, ${location.country}\\n`;\n    contextHistory += `Timezone: ${location.timezone}\\n`;\n    contextHistory += `Total Conversations: ${conversationStats.totalConversations}\\n`;\n    contextHistory += `Period: ${new Date(conversationStats.oldestDate).toLocaleDateString()} to ${new Date(conversationStats.newestDate).toLocaleDateString()}\\n\\n`;\n    \n    // Rest of your context history logic...\n  }\n}\n\nreturn {\n  sessionId: currentInput.sessionId,\n  domain: currentInput.domain,\n  userEmail: currentInput.userEmail,\n  userName: currentInput.userName,\n  userIP: currentInput.userIP,\n  locationData: location,\n  cleanQuery: currentInput.cleanQuery,\n  contextHistory: contextHistory,\n  timestamp: currentInput.timestamp,\n  conversationStats: conversationStats\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        656
+      ],
+      "id": "c5c44aa4-7666-41e8-b57b-1b2eb0f8ff49",
+      "name": "Prepare AI Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Image Request - Enhanced with image database\nconst contextData = $input.first().json;\nconst query = contextData.cleanQuery.toLowerCase();\n\n// Check if user is asking for images\nconst imageKeywords = [\n  'image', 'images', 'picture', 'pictures', 'photo', 'photos',\n  'show me', 'display', 'visualize', 'illustration', 'diagram',\n  'what does', 'how does', 'looks like', 'appear', 'see'\n];\n\nconst wantsImages = imageKeywords.some(keyword => query.includes(keyword));\n\n// Enhanced image database with actual working URLs\nconst imageDatabase = {\n  // Add your image database entries here if needed\n};\n\n// Find matching images\nlet selectedImages = [];\nlet imageMarkdown = '';\n\nif (wantsImages) {\n  // Extract subject from query\n  let subject = query\n    .replace(/show me (images?|pictures?|photos?) of/gi, '')\n    .replace(/give me (images?|pictures?|photos?) of/gi, '')\n    .replace(/display (images?|pictures?|photos?) of/gi, '')\n    .replace(/what (does|do) (.+) look like/gi, '$2')\n    .replace(/(images?|pictures?|photos?) of/gi, '')\n    .trim();\n  \n  // Find matching images from database\n  for (const [key, images] of Object.entries(imageDatabase)) {\n    if (subject.includes(key) || key.includes(subject)) {\n      selectedImages = images.slice(0, 3); // Get up to 3 images\n      break;\n    }\n  }\n  \n  // If no exact match, try partial matches\n  if (selectedImages.length === 0) {\n    for (const [key, images] of Object.entries(imageDatabase)) {\n      const keywords = key.split(' ');\n      if (keywords.some(kw => subject.includes(kw))) {\n        selectedImages = images.slice(0, 3);\n        break;\n      }\n    }\n  }\n  \n  // Build image markdown for AI to include\n  if (selectedImages.length > 0) {\n    imageMarkdown = '\\n\\nHere are the relevant images:\\n\\n';\n    selectedImages.forEach((url, index) => {\n      const altText = subject.charAt(0).toUpperCase() + subject.slice(1) + ' - Image ' + (index + 1);\n      imageMarkdown += `![${altText}](${url})\\n\\n`;\n    });\n  }\n}\n\nreturn {\n  ...contextData,\n  wantsImages: wantsImages,\n  imageMarkdown: imageMarkdown,\n  selectedImages: selectedImages\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1136,
+        656
+      ],
+      "id": "9a69b2e1-5038-4f7b-a2b8-2a01c35d77ce",
+      "name": "Process Image Request"
+    },
+    {
+      "parameters": {
+        "url": "=http://mern.foduu.com:3027/api/chatbot/getprompt/foduu.com",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -928,
+        688
+      ],
+      "id": "c5d7b7ad-df71-4f3c-b2b6-683bf5afa445",
+      "name": "Get Customer Prompt",
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge customer prompt with existing data\nconst imageData = $('Process Image Request').item.json;\nconst promptResponse = $input.first().json;\n\n// Extract prompt from API response\nlet customPrompt = '';\nif (promptResponse && promptResponse.data && promptResponse.data.prompt) {\n  customPrompt = promptResponse.data.prompt;\n} else if (promptResponse && promptResponse.prompt) {\n  customPrompt = promptResponse.prompt;\n} else {\n  customPrompt = ''; // Default empty if no prompt found\n}\n\n// Merge all data including the custom prompt\n// Remove regionalContext references\nreturn {\n  ...imageData,\n  data: {\n    prompt: customPrompt\n  },\n  sessionId: imageData.sessionId,\n  domain: imageData.domain,\n  userEmail: imageData.userEmail,\n  userName: imageData.userName,\n  userIP: imageData.userIP,\n  locationData: imageData.locationData,\n  cleanQuery: imageData.cleanQuery,\n  contextHistory: imageData.contextHistory,\n  timestamp: imageData.timestamp,\n  conversationStats: imageData.conversationStats,\n  wantsImages: imageData.wantsImages,\n  imageMarkdown: imageData.imageMarkdown,\n  selectedImages: imageData.selectedImages,\n  country: imageData.locationData?.country || 'Unknown',\n  region: imageData.locationData?.region || 'Unknown'\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        656
+      ],
+      "id": "d1f4231f-ff57-4c9d-a2db-f1e1dc4d933b",
+      "name": "Merge Prompt Data"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.cleanQuery}}",
+        "options": {
+          "systemMessage": "=You are the {{ $json.domain }} Knowledge Assistant with adaptive regional awareness and dual capabilities:\n1. PRIMARY: Query and retrieve information from {{ $json.domain }} database\n2. SECONDARY: Analyze images when URLs are provided\n\n### HIGH PRIORITY TO THIS PROMPT AND THEN RUN OTHER PROMPTS :-\n{{ $json.data.prompt }}\n\n## DYNAMIC REGIONAL ADAPTATION\n- User Location: {{ $json.locationData.city }}, {{ $json.locationData.region }}, {{ $json.locationData.country }}\n- Timezone: {{ $json.locationData.timezone }}\n- IMPORTANT: Automatically adapt your response style, cultural references, and recommendations based on the user's detected location\n- Use appropriate greetings, date formats, units of measurement, and cultural context for {{ $json.locationData.country }}\n- If location is unknown, use neutral international standards\n\n## AUTOMATIC REGIONAL BEHAVIORS\nBased on the detected country ({{ $json.locationData.country }}), automatically adapt:\n1. **Language Style**: Use region-appropriate English (British English for UK, American English for US, Indian English for India, etc.)\n2. **Currency**: Automatically infer and use the appropriate currency symbol for {{ $json.locationData.country }}\n   - India: ₹ (INR)\n   - USA: $ (USD)\n   - UK: £ (GBP)\n   - EU Countries: € (EUR)\n   - Japan: ¥ (JPY)\n   - Others: Use ISO currency code\n3. **Units**: Use metric or imperial based on country standards\n   - USA, UK, Myanmar: Imperial units\n   - Rest of world: Metric units\n4. **Date Format**: \n   - USA: MM/DD/YYYY\n   - Most others: DD/MM/YYYY\n   - ISO standard if unknown: YYYY-MM-DD\n5. **Time Format**: \n   - USA, Philippines: 12-hour with AM/PM\n   - Most others: 24-hour format\n6. **Cultural Context**: \n   - Include relevant local references and considerations\n   - Use culturally appropriate examples\n   - Respect local business hours and holidays\n7. **Temperature**: \n   - USA: Fahrenheit\n   - Most others: Celsius\n\n## IDENTITY & SCOPE\n- Domain: {{ $json.domain }}\n- Current User: {{ $json.userName }} ({{ $json.userEmail }})\n- Detected Location: {{ $json.locationData.city }}, {{ $json.locationData.country }}\n- IP Address: {{ $json.userIP }}\n- Session: {{ $json.sessionId }}\n- Timestamp: {{ $json.timestamp }}\n\n## DATA SOURCE HIERARCHY\n1. Database First: Always check {{ $json.domain }} database for information\n2. Image Analysis: When image URLs are detected in queries or database results\n3. Combined Response: Synthesize both data sources when available\n\n{{ $json.contextHistory }}\n\n## CORE OPERATING RULES\n\n### Welcome Message Protocol\nWhen generating welcome messages for login or initial greetings:\n- Keep it simple and professional\n- DO NOT include location details (city, country, IP) in the welcome message\n- DO NOT mention the domain in the welcome message\n- Use format: \"Welcome to FODUU AI Assistant! How can I assist you today?\"\n- Location data should only be used internally for contextual responses, not displayed in greetings\n\n### Database Query Protocol\n1. Search {{ $json.domain }} database using provided vector store tool\n2. Extract ALL relevant information including:\n   - Text content\n   - Metadata (URLs, dates, sources)\n   - Associated image URLs from results\n3. NEVER fabricate database information\n4. If no data exists: \"No information found in {{ $json.domain }} database for [topic]\"\n\n### Image Analysis Protocol\nWhen image URL is provided (format: [Analyzing image: URL] or detected in query):\n1. Analyze visual content thoroughly:\n   - Objects, people, text, scenes\n   - Technical specifications if visible\n   - Brand/model identifications\n   - Quality assessments\n2. Cross-reference with database information\n3. Provide contextual insights based on domain expertise\n\n### Response Construction Rules\n\nWITH Database Data + Images:\n[Database facts with specifics]\n[Image analysis confirming/extending database info]\n![Relevant Image](url_from_database)\nSource: [metadata.source]\n\nWITH Database Data Only:\n[Specific information from {{ $json.domain }} database]\n[Include technical specs, model numbers, features]\nReference: [metadata.url if available]\n\nWITH Image Analysis Only:\nBased on image analysis:\n[Detailed visual description]\n[Technical observations]\nNote: No corresponding {{ $json.domain }} database entry found.\n\nNO Data Available:\nNo information available in {{ $json.domain }} database for [topic].\n[Single contextual sentence if helpful]\n\n## QUERY PROCESSING WORKFLOW\n\n1. Parse Query:\n   - Identify search terms\n   - Detect image URL patterns\n   - Check for multimedia requests\n\n2. Database Search:\n   - Use vector store tool with domain filter\n   - Retrieve relevant chunks with metadata\n   - Extract embedded image URLs\n\n3. Image Processing (if applicable):\n   - Analyze provided image URLs\n   - Extract visual information\n   - Identify products/specifications\n\n4. Synthesis:\n   - Combine database facts with image insights\n   - Maintain source attribution\n   - Include relevant visuals\n\n## RESPONSE FORMATTING\n\nStandard Response Structure:\n- Length: 2-3 sentences for simple queries, up to paragraph for complex\n- Images: Include when relevant, max 3 unless specifically requested\n- Citations: Always include source metadata when available\n- Tone: Professional, concise, factual, adapted to regional\n- Give me short and accurate response , dont give too long responses but include links .\n\ncommunication style\n- Currency: Automatically use appropriate currency for {{ $json.locationData.country }}\n- Units: Automatically use appropriate measurement system for {{ $json.locationData.country }}\n- Dates: Format according to {{ $json.locationData.country }} standards\n- Location Context: Use {{ $json.locationData.city }} internally for relevant recommendations, but DO NOT display in greetings\n\nProduct Queries Format:\n[Product Name] - [Model/SKU]\nSpecifications: [key specs from database with regionally appropriate units]\nPrice: [Use automatically detected currency for {{ $json.locationData.country }}]\n[Image analysis details if available]\n![Product Image](url)\n\nComparison Queries Format:\nDatabase shows [X] models available:\n1. [Model A]: [specs in regional units] - [price in regional currency]\n2. [Model B]: [specs in regional units] - [price in regional currency]\n\nTechnical Support Format:\nAccording to {{ $json.domain }} documentation:\n[Step-by-step from database]\n[Visual confirmation from image if provided]\n[Times in regional format]\n\n## IMAGE INTEGRATION EXAMPLES\n\nExample 1 - Product with Database + Image:\nQuery: \"Show me forklift model AC-2500\"\nResponse: The AC-2500 electric forklift features [capacity in regional units], [dimensions in regional units], 48V battery system, and regenerative braking. Image analysis confirms the 3-stage mast design and LED safety lighting visible in catalog photo.\n![AC-2500 Electric Forklift](database_url)\nSource: {{ $json.domain }}/products/ac-2500\n\nExample 2 - Image Analysis Without Database:\nQuery: \"[Analyzing image: equipment_photo.jpg]\"\nResponse: Image analysis shows a diesel-powered material handler with approximately [capacity in regional units], pneumatic tires, and side-shift attachment. Orange safety markings and CE certification visible. No matching model found in {{ $json.domain }} database.\n\nExample 3 - Combined Search:\nQuery: \"Find safety equipment with image analysis\"\nResponse: {{ $json.domain }} safety catalog includes:\n- Hard hats (Type I & II certified) - Image analysis confirms ANSI Z89.1 marking\n- High-visibility vests (Class 2 & 3) - Reflective patterns match ISEA standards\n- Safety glasses (Z87.1 rated) - Anti-fog coating visible in product images\n![Safety Equipment Set](database_url)\n\n## ERROR HANDLING\n\nMissing Database Connection:\n\"Database temporarily unavailable. Attempting image analysis only...\"\n\nInvalid Image URL:\n\"Cannot analyze image at provided URL. Please verify the link.\"\n\nNo Results:\n\"No matching information in {{ $json.domain }} database. Would you like me to analyze a specific image?\"\n\n## TOKEN OPTIMIZATION\n\nPriority Order:\n1. Direct database matches (lowest token usage)\n2. Vector similarity search (moderate tokens)\n3. Image analysis (higher tokens)\n4. Combined analysis (highest tokens)\n\nEfficiency Rules:\n- Cache frequently accessed data\n- Limit context history to 15 recent exchanges\n- Compress image descriptions to essential details\n- Use metadata references instead of full content when possible\n\n## SPECIAL INSTRUCTIONS\n\n{{ $json.imageMarkdown }}\n\nDomain-Specific Knowledge:\n- Equipment specifications must match database exactly\n- Part numbers and model codes are case-sensitive\n- Pricing/availability requires real-time API check\n- Safety certifications must be current\n- Automatically adapt all prices to regional currency based on {{ $json.locationData.country }}\n- Convert all measurements to regional standards\n\nMulti-Modal Integration:\nWhen both database and image data available:\n1. Database facts take precedence for specifications\n2. Image analysis provides visual confirmation\n3. Discrepancies noted explicitly\n4. Combined confidence score provided\n\n## CONVERSATION MEMORY\n\nPrevious interactions context:\n{{ $json.contextHistory }}\n\nUse this to:\n- Maintain conversation continuity\n- Avoid repetitive responses\n- Build on previous queries\n- Track user preferences\n- Consider location context internally ({{ $json.locationData.city }}, {{ $json.locationData.country }}) but DO NOT display in greetings\n\n## BEHAVIORAL GUIDELINES (FROM LONG CONVERSATION REMINDER)\n\n### User Wellbeing\n- Avoid encouraging or facilitating self-destructive behaviors\n- Do not support addiction, disordered eating/exercise, or negative self-talk\n- In ambiguous cases, ensure the user is approaching things healthily\n\n### Communication Style\n- NEVER start responses with flattery (good, great, fascinating, etc.)\n- Skip compliments and respond directly to the query\n- Do not use emojis unless the user uses them first or requests them\n- Avoid emotes or actions in asterisks unless specifically requested\n\n### Critical Thinking\n- Critically evaluate all theories, claims, and ideas\n- Point out flaws, factual errors, or lack of evidence respectfully\n- Prioritize truthfulness and accuracy over agreeability\n- Distinguish between literal truth claims and metaphorical frameworks\n- Present critiques kindly as your own opinion\n\n### Mental Health Awareness\n- If signs of mental health issues appear (mania, psychosis, dissociation):\n  - Avoid reinforcing problematic beliefs\n  - Share concerns explicitly but kindly\n  - Suggest speaking with a professional\n- Remain vigilant for escalating detachment from reality\n\n### Honest Feedback\n- Provide honest and accurate feedback even if unwelcome\n- Maintain objectivity in interpersonal issues\n- Offer constructive feedback when appropriate\n- Point out false assumptions\n- Balance kindness with honesty for long-term wellbeing\n\n### Role Clarity\n- Maintain clear awareness of roleplay vs normal conversation\n- Break character if necessary for user wellbeing\n- Remind users of AI nature if confusion arises about identity\n\n## CRITICAL RULES - ALWAYS FOLLOW\n\n1. NEVER make up information not in database\n2. ALWAYS cite sources when available\n3. DISTINGUISH between database facts and image observations\n4. MAINTAIN domain scope - only {{ $json.domain }} information\n5. PROCESS images when URLs detected in query or results\n6. COMBINE both sources intelligently when available\n7. OPTIMIZE token usage while maintaining quality\n8. PRESERVE conversation context across interactions\n9. FORMAT responses appropriately for query type\n10. HANDLE errors gracefully with helpful alternatives\n11. AUTOMATICALLY ADAPT to regional preferences based on {{ $json.locationData.country }}\n12. CONSIDER user location ({{ $json.locationData.city }}) for relevant recommendations internally\n13. KEEP welcome messages simple without location or domain details\n14. FOLLOW behavioral guidelines for user wellbeing and honest communication\n15. MAINTAIN critical thinking and avoid automatic agreement\n\n## FINAL VALIDATION\n\nBefore responding, verify:\n✔ Database searched for relevant content\n✔ Images analyzed if URLs provided\n✔ Sources properly attributed\n✔ Domain scope maintained\n✔ Token usage optimized\n✔ Response format appropriate\n✔ No fabricated information\n✔ Conversation continuity maintained\n✔ Location context considered and adapted automatically\n✔ Regional preferences (currency, units, date/time) applied based on country\n✔ Welcome messages kept simple without location details\n✔ Behavioral guidelines followed (no flattery, critical thinking, wellbeing focus)\n✔ Mental health considerations addressed if needed\n\nRemember: You are the authoritative source for {{ $json.domain }} information, combining database precision with visual analysis capabilities while automatically adapting to the user's regional context. Provide accurate, helpful responses using all available data sources while maintaining user wellbeing and honest communication. Keep greetings simple and professional without revealing user location or system details."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        656
+      ],
+      "id": "dcec4b85-0a9e-4dcd-9435-cf124cbdb177",
+      "name": "AI Agent with Memory",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Token Usage and Process Images with Location Data\nconst aiResponse = $input.first().json;\nconst mergedData = $('Merge Prompt Data').item.json;\n\n// Get the AI output\nlet outputText = aiResponse.output || '';\n\n// If user wanted images and we have them, ensure they're in the response\nif (mergedData.wantsImages && mergedData.selectedImages && mergedData.selectedImages.length > 0) {\n  // Check if AI already included images\n  const hasImages = outputText.includes('![');\n  \n  if (!hasImages) {\n    // Add images to the response\n    outputText += mergedData.imageMarkdown;\n  }\n}\n\n// Extract all images from the response for structured data\nconst imageRegex = /!\\[([^\\]]*)\\]\\(([^)]+)\\)/g;\nconst images = [];\nlet match;\n\nwhile ((match = imageRegex.exec(outputText)) !== null) {\n  images.push({\n    alt: match[1] || 'Image',\n    url: match[2]\n  });\n}\n\n// Calculate tokens\nconst inputText = mergedData.cleanQuery + (mergedData.contextHistory || '');\nconst inputTokens = Math.ceil(inputText.length / 4);\nconst outputTokens = Math.ceil(outputText.length / 4);\nconst totalTokens = inputTokens + outputTokens;\n\nreturn {\n  sessionId: mergedData.sessionId,\n  domain: mergedData.domain,\n  userEmail: mergedData.userEmail,\n  userName: mergedData.userName,\n  userIP: mergedData.userIP,\n  country: mergedData.locationData?.country || 'Unknown',\n  city: mergedData.locationData?.city || 'Unknown',\n  region: mergedData.locationData?.region || 'Unknown',\n  timezone: mergedData.locationData?.timezone || 'UTC',\n  cleanQuery: mergedData.cleanQuery,\n  output: outputText,\n  images: images,\n  hasImages: images.length > 0,\n  timestamp: mergedData.timestamp,\n  tokenUsage: {\n    input_tokens: inputTokens,\n    output_tokens: outputTokens,\n    total_tokens: totalTokens\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        624
+      ],
+      "id": "a2346a14-7c9a-4bb5-af89-5d2645318008",
+      "name": "Extract Token Usage",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mern.foduu.com:3027/api/chatbot/deduct-wallet",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "domain_name",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "token",
+              "value": "={{ $json.tokenUsage.total_tokens }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        224,
+        576
+      ],
+      "id": "96f1c147-d799-4bcb-9857-5562ef620bd6",
+      "name": "Send Token Usage to API",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Response with Image Support and Location Data\nconst tokenData = $('Extract Token Usage').item.json;\nconst apiResponse = $input.first().json;\n\n// Track token deduction status\nlet deductionStatus = 'unknown';\nif (apiResponse.error || apiResponse.success === false) {\n  deductionStatus = 'failed';\n} else {\n  deductionStatus = 'success';\n}\n\n// Create structured response with images and location\nconst response = {\n  output: tokenData.output,\n  images: tokenData.images || [],\n  hasImages: tokenData.hasImages || false,\n  userIP: tokenData.userIP,\n  location: {\n    city: tokenData.city,\n    country: tokenData.country,\n    region: tokenData.region,\n    timezone: tokenData.timezone\n  },\n  timestamp: tokenData.timestamp\n};\n\n// Return JSON response for chatbot\nreturn {\n  output: JSON.stringify(response)\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        576
+      ],
+      "id": "02a6bca0-fb09-4e9e-9201-b63768d192e9",
+      "name": "Format Response for Chatbot",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Save chat data with tokens and location to MongoDB\nconst tokenData = $('Extract Token Usage').item.json;\nconst apiResponse = $('Send Token Usage to API').first().json;\n\nlet deductionStatus = 'unknown';\nif (apiResponse.error || apiResponse.success === false) {\n  deductionStatus = 'failed';\n} else {\n  deductionStatus = 'success';\n}\n\nreturn {\n  sessionId: tokenData.sessionId,\n  domain: tokenData.domain,\n  userEmail: tokenData.userEmail,\n  userName: tokenData.userName,\n  userIP: tokenData.userIP,\n  country: tokenData.country,\n  city: tokenData.city,\n  region: tokenData.region,\n  timezone: tokenData.timezone,\n  cleanQuery: tokenData.cleanQuery,\n  output: tokenData.output,\n  timestamp: tokenData.timestamp,\n  totalTokensUsed: tokenData.tokenUsage.total_tokens,\n  inputTokens: tokenData.tokenUsage.input_tokens,\n  outputTokens: tokenData.tokenUsage.output_tokens,\n  tokenDeductionStatus: deductionStatus,\n  hasImages: tokenData.hasImages || false,\n  imageCount: tokenData.images ? tokenData.images.length : 0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        768
+      ],
+      "id": "2544defd-85e3-46b9-8a54-b072ce448794",
+      "name": "Prepare MongoDB Data",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "foduu_chat",
+        "fields": "sessionId,domain,userEmail,userName,userIP,country,city,region,timezone,cleanQuery,output,totalTokensUsed,inputTokens,outputTokens,tokenDeductionStatus,timestamp,hasImages,imageCount",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        736
+      ],
+      "id": "2ca17324-78a3-4b37-8a76-9c13326e5ad6",
+      "name": "Save AI Chat to MongoDB",
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        784,
+        320
+      ],
+      "id": "d4df8da7-afa6-4819-b12e-7eb779e4ba19",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        880
+      ],
+      "id": "547bbc1f-c792-4ed7-bde6-04ca24d1362a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "7rbG6eLycwT9qgiw",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.userEmail }},\n{{ $json.domain }}",
+        "collectionName": "chat_memory",
+        "databaseName": "foduu",
+        "contextWindowLength": 100
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryMongoDbChat",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        880
+      ],
+      "id": "d90c565e-947e-48e9-8b73-8ca8261926ac",
+      "name": "MongoDB Chat Memory",
+      "credentials": {
+        "mongoDb": {
+          "id": "G4K2yaBv6jYoaQIG",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search FODUU knowledge base for information specific to domain {{ $json.domain }}. Returns content chunks with metadata including source URLs and images. Extract both content, URLs, and images from results for comprehensive responses with proper citations and visual content.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "foduu_chatbot_embeddings_chatbot",
+          "mode": "list",
+          "cachedResultName": "foduu_chatbot_embeddings_chatbot"
+        },
+        "options": {
+          "searchFilterJson": "={\n  \"should\": [\n    {\n      \"key\": \"metadata.domain\",\n      \"match\": {\n        \"value\": \"{{ $json.domain }}\"\n      }\n    }\n  ]\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        880
+      ],
+      "id": "f695c89a-e46d-4e3e-b7e0-a5817ec36afa",
+      "name": "Qdrant Vector Store",
+      "alwaysOutputData": true,
+      "credentials": {
+        "qdrantApi": {
+          "id": "aWAX1RLbKlpqtez4",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        1040
+      ],
+      "id": "c66ccecd-c0cb-4398-a1e0-824054f98063",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "waotd8OQZHmIcWO9",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Parse Input Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input Data": {
+      "main": [
+        [
+          {
+            "node": "Get Geo Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Geo Location": {
+      "main": [
+        [
+          {
+            "node": "Process Geo Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Geo Data": {
+      "main": [
+        [
+          {
+            "node": "Route by Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Type": {
+      "main": [
+        [
+          {
+            "node": "Check Existing User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get All History for Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Context History for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing User": {
+      "main": [
+        [
+          {
+            "node": "Is New User?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New User?": {
+      "main": [
+        [
+          {
+            "node": "Prepare New User Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Existing User Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare New User Data": {
+      "main": [
+        [
+          {
+            "node": "Create New User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New User": {
+      "main": [
+        [
+          {
+            "node": "Get All Chat History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Existing User Data": {
+      "main": [
+        [
+          {
+            "node": "Update Existing User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Existing User": {
+      "main": [
+        [
+          {
+            "node": "Get All Chat History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Chat History": {
+      "main": [
+        [
+          {
+            "node": "Format Login Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Login Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All History for Query": {
+      "main": [
+        [
+          {
+            "node": "Format History Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format History Response": {
+      "main": [
+        [
+          {
+            "node": "Save History Chat to MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save History Chat to MongoDB": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Context History for AI": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Context": {
+      "main": [
+        [
+          {
+            "node": "Process Image Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Image Request": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Prompt": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompt Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Prompt Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent with Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent with Memory": {
+      "main": [
+        [
+          {
+            "node": "Extract Token Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Token Usage": {
+      "main": [
+        [
+          {
+            "node": "Send Token Usage to API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare MongoDB Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Token Usage to API": {
+      "main": [
+        [
+          {
+            "node": "Format Response for Chatbot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response for Chatbot": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare MongoDB Data": {
+      "main": [
+        [
+          {
+            "node": "Save AI Chat to MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent with Memory",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent with Memory",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent with Memory",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "240f6601-7b34-4d70-8401-a2f834e29798",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "95f4774b39d7c7975d46710f35c447a2b172c6fcd1d96a1f8091365ad393d8fa"
+  },
+  "id": "WD3C8OPeJDzeo6la",
+  "tags": []
+}
