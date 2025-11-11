@@ -1,0 +1,104 @@
+{
+  "name": "triggwr mcp",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "e8a1351d-0880-4b6e-bbc2-e6c6a5a0d83a"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        -128
+      ],
+      "id": "d9240205-a97d-4437-93f0-151665ec6805",
+      "name": "MCP Server Trigger",
+      "webhookId": "e8a1351d-0880-4b6e-bbc2-e6c6a5a0d83a"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "limit": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Limit', ``, 'number') }}",
+        "filters": {
+          "q": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Query', ``, 'string') }}",
+          "regionCode": "IN"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.youTubeTool",
+      "typeVersion": 1,
+      "position": [
+        -472,
+        96
+      ],
+      "id": "7bcce49a-a3db-4036-84ae-9f8cf8076bb4",
+      "name": "Get many videos in YouTube",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "87wLQXSxu7OOin5b",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "google_trends",
+        "q": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Search_Query__q_', ``, 'string') }}",
+        "additionalFields": {
+          "data_type": "RELATED_QUERIES"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApiTool",
+      "typeVersion": 1,
+      "position": [
+        -344,
+        96
+      ],
+      "id": "36c2928e-5aba-43d4-a0c1-a6b121569ba2",
+      "name": "Google_trends search in SerpApi",
+      "credentials": {
+        "serpApi": {
+          "id": "qXxPhOI3HrgrsIUo",
+          "name": "SerpApi account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get many videos in YouTube": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_trends search in SerpApi": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e0de2df2-4ea2-42e4-a064-62e01b82372d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "35d6f3b049c5a3162f473ddef9ddae75ef647ed2e0d35b9884f1ebb0865b027c"
+  },
+  "id": "PXJ8q7AlnymV9Lsa",
+  "tags": []
+}

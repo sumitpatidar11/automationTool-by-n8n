@@ -1,0 +1,372 @@
+{
+  "name": "Tredning content creation",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -3264,
+        1888
+      ],
+      "id": "bd39ab6e-12a2-44bc-9a26-f7c73f25447d",
+      "name": "When chat message received",
+      "webhookId": "b0a228b4-c042-4f30-a6f5-cd46e9fd921b"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are an AI research agent specialized in discovering top trending keywords and topics.\nYou have to scrape top trending keywords by using the \nGoogle Trends API and YouTube Data API to fetch real-time data for a given related domain technology {{  $json.chatInput }}.\nYou analyze results, rank keywords by popularity, engagement, and growth trend, and output a structured JSON list of top 5 trending keywords only not any other terms like popularity, engagement, and growth trend .\nUse the latest data sources (Google Trends, YouTube, or any relevant platforms) to identify 5 keywords with high popularity and search volume."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -3040,
+        1888
+      ],
+      "id": "9bd67615-6dcf-4a17-b225-38bed8a9857d",
+      "name": "AI Agent1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -3040,
+        2112
+      ],
+      "id": "bb5a7129-b771-4d49-af95-6fd912c1020e",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "CMCiPm8x2VPE8xV0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://localhost:5678/mcp/e8a1351d-0880-4b6e-bbc2-e6c6a5a0d83a",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        -2912,
+        2112
+      ],
+      "id": "7ea58d2b-64ca-4dc6-8802-c9ab3c20f007",
+      "name": "MCP Client",
+      "notesInFlow": false
+    },
+    {
+      "parameters": {
+        "messages": {
+          "message": [
+            {
+              "content": "=you have to extract 5 keywords which have high popularity and dont repeate same keywords.\n\n\nYOU HAVE TO FOLLOW THIS INSTRUCTION ON THE 5 EXTRACTED KEYWORDS:-\n1. you have to create a blog on each keyword with proper information and in accurate form with proper formate about 200 words per keywords.\n2. Dont give Conclusion at the end.\n\n",
+              "role": "system"
+            },
+            {
+              "content": "={{ $json.output }}"
+            }
+          ]
+        },
+        "simplify": true,
+        "options": {
+          "temperature": 0.3,
+          "returnImages": false
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        2976
+      ],
+      "id": "fee10a4a-c098-4843-9653-35a18042fdfe",
+      "name": "Message a model1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "perplexityApi": {
+          "id": "7Ae44R2WKPgDVwud",
+          "name": "Perplexity account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "messages": {
+          "message": [
+            {
+              "content": "=AI Agent Prompt: Trending Keyword Blog Writer\n\nGoal:\nExtract 5 unique and highly popular keywords (no repetitions) related to the given topic or domain. For each keyword, create an informative and well-structured blog post of about 300 words.\n\nInstructions:\n1. Use the latest data sources (Google Trends, YouTube, or any relevant platforms) to identify 5 keywords with high popularity and search volume.\n2. Avoid repeating or using similar keywords — each one must represent a distinct trend or topic.\n3. For each keyword, generate a mini blog post (approx. 300 words) that includes:\n   - A compelling headline/title using the keyword.\n   - A short introduction explaining why it’s trending or relevant.\n   - Detailed information about the keyword’s context, use cases, and importance.\n   - Use clear, accurate, and informative language.\n   - Maintain a natural flow like a real blog article (not just bullet points).\n4. Do not include a conclusion at the end of the blog.\n5. Ensure all content is unique, factually accurate, and formatted for readability (paragraphs, headings, etc.).\n\nExample Input:\n“AI automation trending keywords”\n\nExpected Output:\n5 distinct keywords + 5 complete detailed blog posts (each around 300 words) written in blog format — no conclusions.\n",
+              "role": "system"
+            },
+            {
+              "content": "={{ $json.output }}"
+            }
+          ]
+        },
+        "simplify": true,
+        "options": {
+          "temperature": 0.3,
+          "returnImages": false
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [
+        -2688,
+        1888
+      ],
+      "id": "cdec2d40-71c3-45fa-9958-e803538fdd18",
+      "name": "Message a model",
+      "alwaysOutputData": true,
+      "credentials": {
+        "perplexityApi": {
+          "id": "7Ae44R2WKPgDVwud",
+          "name": "Perplexity account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "You are a helpful assistant.  \nYour task is to save data into a Google Sheet.  \nEach row must contain **only one keyword**.  \nDo not insert duplicate keywords in the same row or in multiple rows.  \nEnsure that every keyword is unique and properly formatted before saving.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -2464,
+        1888
+      ],
+      "id": "5baf7d8f-0ee8-48e7-b40f-bc8ff89a8237",
+      "name": "AI Agent2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -2464,
+        2112
+      ],
+      "id": "1aa15d2d-0998-4783-848a-d78366910103",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "CMCiPm8x2VPE8xV0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/12J3YEPM5IwunNOzEV0bddOJ2vyWFfdBKraSQltJGkmw/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12J3YEPM5IwunNOzEV0bddOJ2vyWFfdBKraSQltJGkmw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Topic": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Topic', ``, 'string') }}",
+            "Status": "=Pending",
+            "Blog Content": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Blog_Content', ``, 'string') }}",
+            "Prompt": "={{ $('When chat message received').item.json.chatInput }}",
+            "Date": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Prompt",
+              "displayName": "Prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Blog Content",
+              "displayName": "Blog Content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -2336,
+        2112
+      ],
+      "id": "40f8d2d7-c680-4df0-9b43-bf6ebb959369",
+      "name": "Append row in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "nsQDxSPKCpEKI1CM",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        []
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c54d2978-2ee5-4631-866a-7f70b64c414f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "35d6f3b049c5a3162f473ddef9ddae75ef647ed2e0d35b9884f1ebb0865b027c"
+  },
+  "id": "ovRTogO7T8pxCExW",
+  "tags": []
+}
